@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Social Media App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">Social Media App</div>
+            <div class="nav-items">
+                <span class="welcome-text">Welcome, {{ username }}!</span>
+                <a href="{{ url_for('logout') }}" class="button button-logout">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="dashboard-grid">
+            <!-- Create Post Section -->
+            <div class="card post-form-card">
+                <h2>Create a Post</h2>
+                <form action="{{ url_for('create_post') }}" method="POST">
+                    <div class="form-group">
+                        <textarea name="content" placeholder="What's on your mind?" required></textarea>
+                    </div>
+                    <button type="submit" class="button">Post</button>
+                </form>
+            </div>
+
+            <!-- Feed Section -->
+            <div class="feed-section">
+                <h2>Recent Posts</h2>
+                {% if posts %}
+                    {% for post in posts %}
+                    <div class="card post-card">
+                        <div class="post-header">
+                            <span class="post-author">{{ post.user.username }}</span>
+                            <span class="post-time">{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                        </div>
+                        <div class="post-content">
+                            {{ post.content }}
+                        </div>
+                        <div class="post-actions">
+                            <button class="button-like">Like</button>
+                            <button class="button-comment">Comment</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="card post-card">
+                        <p>No posts yet. Be the first to post!</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

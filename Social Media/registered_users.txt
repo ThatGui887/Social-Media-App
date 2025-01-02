@@ -1,0 +1,4 @@
+[2025-01-02 13:44:35] New user registered:
+Username: marco
+Email: test2@gmail.com
+--------------------------------------------------
