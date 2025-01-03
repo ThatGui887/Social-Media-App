@@ -1,138 +1,131 @@
-# Social Media Application
+# Social Media App
 
-A Flask-based social media application with basic user authentication and posting capabilities.
+A Flask-based social media application with user authentication, friend management, and post sharing capabilities. This project demonstrates a full-stack web application using Python, SQLite, and modern web technologies.
 
 ## Features
 
-### User Authentication
-- **Registration System**
-  - Username and email uniqueness validation
-  - Password confirmation
-  - Secure password hashing
-  - Registration logging system for developers
-
-- **Login System**
-  - Email and password authentication
+- **User Authentication**
+  - Secure registration and login
+  - Password hashing
   - Session management
-  - Secure login state maintenance
 
-- **Logout Functionality**
-  - Session clearing
-  - Redirect to login page
+- **Profile Management**
+  - User profiles with username and full name
+  - Profile customization options
 
-### Post Management
-- Create new posts
-- View all posts in chronological order
-- Posts display:
-  - Author username
-  - Creation timestamp
-  - Content
-  - Action buttons (Like/Comment - functionality pending)
+- **Friend System**
+  - Send friend requests
+  - Accept/manage friend requests
+  - View friends list
 
-### Developer Features
-- Registration logging to text file
-- Debug mode enabled
-- Error handling and flash messages
-- Database management with SQLAlchemy
+- **Post Management**
+  - Create and view posts
+  - Like system
+  - Comment functionality
 
-## Technical Details
+- **Search Functionality**
+  - Search users by username or full name
+  - Filter search results
 
-### Database Models
+## Technology Stack
 
-#### User Model
-- id (Primary Key)
-- username (Unique)
-- email (Unique)
-- password (Hashed)
+- **Backend**
+  - Python 3.x
+  - Flask
+  - SQLAlchemy
+  - SQLite
 
-#### Post Model
-- id (Primary Key)
-- content
-- created_at
-- user_id (Foreign Key)
+- **Frontend**
+  - HTML5
+  - CSS3
+  - JavaScript
+  - Font Awesome
 
-### File Structure
-project/
-├── CRUD.py
-├── social_media.db
-├── registered_users.txt
-├── static/
-│ └── css/
-│ └── style.css
-└── templates/
-├── index.html
-└── dashboard.html
-
-
-## Update History
-
-### Version 1.0
-- Initial setup
-- Basic Flask application structure
-- Static files configuration
-
-### Version 1.1
-- Added user registration
-- Created basic index page
-- Implemented CSS styling
-
-### Version 1.2
-- Added login functionality
-- Created dashboard template
-- Implemented session management
-
-### Version 1.3
-- Added Post model
-- Implemented post creation
-- Added post display on dashboard
-- Enhanced dashboard styling
-
-### Version 1.4
-- Added developer logging system
-- Enhanced error handling
-- Added flash messages
-- Improved form validation
-
-## Pending Features
-1. Like system for posts
-2. Comment system
-3. User profiles
-4. Post deletion
-5. User avatar support
-6. Friend/Follow system
-7. Post privacy settings
-8. User search functionality
-
-## Technical Requirements
-- Python 3.x
-- Flask
-- Flask-SQLAlchemy
-- Werkzeug
+- **Database**
+  - SQLite3
 
 ## Installation
 
 1. Clone the repository
-2. Install required packages:
-3. Run the application:
-4. Access the application at `http://localhost:5000`
+2. 
+2. Create a virtual environment
+3. 
+3. Install dependencies
+4. 
+4. Run the application
+5. 
+5. Access the application at `http://localhost:5000`
 
-## Development Notes
-- Database is automatically created on first run
-- Debug mode is enabled for development
-- Registration logs are stored in `registered_users.txt`
-- All passwords are hashed before storage
-- Session management is implemented for security
+## Project Structure
+├── CRUD.py # Main application file
+├── requirements.txt # Project dependencies
+├── social_media.db # SQLite database
+│
+├── static/
+│ └── css/
+│ └── style.css # Application styles
+│
+├── templates/
+│ ├── index.html # Login/Register page
+│ ├── dashboard.html # User dashboard
+│ ├── friends.html # Friends management
+│ └── search.html # User search
 
-## Security Features
-- Password hashing
-- Session management
-- Form validation
-- SQL injection prevention through SQLAlchemy
-- Unique constraint enforcement
-- Protected routes requiring authentication
+
+## Database Schema
+
+- **Users**
+  - id (Primary Key)
+  - username
+  - email
+  - password (hashed)
+  - first_name
+  - last_name
+
+- **Friends**
+  - id (Primary Key)
+  - user_id (Foreign Key)
+  - friend_id (Foreign Key)
+  - status
+  - created_at
+
+- **Posts**
+  - id (Primary Key)
+  - content
+  - user_id (Foreign Key)
+  - created_at
+
+- **Likes**
+  - id (Primary Key)
+  - user_id (Foreign Key)
+  - post_id (Foreign Key)
+  - created_at
+
+- **Comments**
+  - id (Primary Key)
+  - content
+  - user_id (Foreign Key)
+  - post_id (Foreign Key)
+  - created_at
 
 ## Contributing
-Feel free to fork this project and submit pull requests for any enhancements.
+
+1. Fork the repository
+2. Create a new branch (`git checkout -b feature/improvement`)
+3. Make changes
+4. Commit your changes (`git commit -am 'Add new feature'`)
+5. Push to the branch (`git push origin feature/improvement`)
+6. Create a Pull Request
 
 ## License
-This project is open source and available under the MIT License.
+
+None
+
+## Acknowledgments
+
+- Flask documentation and community
+- SQLAlchemy documentation
+- Font Awesome for icons
+
+
+
