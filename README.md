@@ -2,7 +2,7 @@
 
 A Flask-based social media application with user authentication, friend management, and post sharing capabilities. This project demonstrates a full-stack web application using Python, SQLite, and modern web technologies.
 
-## Features
+# Features
 
 - **User Authentication**
   - Secure registration and login
