@@ -127,5 +127,71 @@ None
 - SQLAlchemy documentation
 - Font Awesome for icons
 
+# Bug Report Log
+
+## Fixed Bugs
+
+### Database Issues
+1. **Database Creation Loop** *(Fixed: 2024-03-XX)*
+   - **Issue**: Database being recreated on every app restart
+   - **Fix**: Modified init_db() to check for existing database
+   - **File**: CRUD.py
+   - **Status**: ✅ Resolved
+
+2. **Login Field Auto-Population** *(Fixed: 2024-03-XX)*
+   - **Issue**: Default values appearing in login fields
+   - **Fix**: Added autocomplete="off" and form clearing on page load
+   - **File**: templates/index.html
+   - **Status**: ✅ Resolved
+
+3. **Database Reading/Writing** *(Fixed: 2024-03-XX)*
+   - **Issue**: Inconsistent database access
+   - **Fix**: Implemented proper READ/WRITE operations
+   - **File**: CRUD.py
+   - **Status**: ✅ Resolved
+
+### Friend System Issues
+1. **Friend Model Relationship** *(Fixed: 2024-03-XX)*
+   - **Issue**: UndefinedError: 'Friend object' has no attribute 'user'
+   - **Fix**: Added proper relationships to Friend model
+   - **File**: CRUD.py
+   - **Status**: ✅ Resolved
+
+### Authentication Issues
+1. **Session Management** *(Fixed: 2024-03-XX)*
+   - **Issue**: Session not clearing on logout
+   - **Fix**: Added session.clear() to logout route
+   - **File**: CRUD.py
+   - **Status**: ✅ Resolved
+
+## Known Issues
+
+### UI/UX Issues
+1. **Search Results Pagination**
+   - **Issue**: All search results shown on one page
+   - **Impact**: Performance issues with large user base
+   - **Status**: 🔄 Pending
+   - **Proposed Fix**: Implement pagination for search results
+
+2. **Friend Request Notifications**
+   - **Issue**: No real-time notifications for friend requests
+   - **Impact**: Users must refresh to see new requests
+   - **Status**: 🔄 Pending
+   - **Proposed Fix**: Implement WebSocket for real-time updates
+
+### Performance Issues
+1. **Database Query Optimization**
+   - **Issue**: N+1 query problem in friend list
+   - **Impact**: Slow loading of friends page with many connections
+   - **Status**: 🔄 Pending
+   - **Proposed Fix**: Implement eager loading for friend relationships
+
+### Security Issues
+1. **Password Reset**
+   - **Issue**: No password reset functionality
+   - **Impact**: Users can't recover lost accounts
+   - **Status**: 🔄 Pending
+   - **Proposed Fix**: Implement email-based password reset
+
 
 
