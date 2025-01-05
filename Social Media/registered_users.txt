@@ -2,3 +2,27 @@
 Username: marco
 Email: test2@gmail.com
 --------------------------------------------------
+[2025-01-02 18:52:48] New user registered:
+Username: Abier
+Email: abier@gmail.com
+--------------------------------------------------
+[2025-01-02 19:10:48] New user registered:
+Username: bob
+Email: bob@gmail.com
+--------------------------------------------------
+[2025-01-02 19:19:42] New user registered:
+Username: DaleDobeck
+Email: test@gmail.com
+--------------------------------------------------
+[2025-01-02 19:55:43] New user registered:
+Username: Bobaas
+Email: koos@gmail.com
+First Name: koos
+Last Name: deker
+--------------------------------------------------
+[2025-01-02 19:57:24] New user registered:
+Username: Mrglass
+Email: glassman@gmail.com
+First Name: Sand
+Last Name: furnace
+--------------------------------------------------

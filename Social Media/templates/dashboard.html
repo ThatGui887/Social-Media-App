@@ -5,12 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Social Media App</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
 <body>
     <nav class="navbar">
         <div class="container">
             <div class="nav-brand">Social Media App</div>
             <div class="nav-items">
+                <a href="{{ url_for('dashboard') }}" class="nav-link active">
+                    <i class="fas fa-home"></i> Home
+                </a>
+                <a href="{{ url_for('friends') }}" class="nav-link">
+                    <i class="fas fa-user-friends"></i> Friends
+                </a>
+                <form action="{{ url_for('search') }}" method="GET" class="search-form">
+                    <input type="text" name="query" placeholder="Search users...">
+                    <button type="submit"><i class="fas fa-search"></i></button>
+                </form>
                 <span class="welcome-text">Welcome, {{ username }}!</span>
                 <a href="{{ url_for('logout') }}" class="button button-logout">Logout</a>
             </div>
@@ -35,7 +46,7 @@
                 <h2>Recent Posts</h2>
                 {% if posts %}
                     {% for post in posts %}
-                    <div class="card post-card">
+                    <div class="card post-card" data-post-id="{{ post.id }}">
                         <div class="post-header">
                             <span class="post-author">{{ post.user.username }}</span>
                             <span class="post-time">{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
@@ -44,8 +55,37 @@
                             {{ post.content }}
                         </div>
                         <div class="post-actions">
-                            <button class="button-like">Like</button>
-                            <button class="button-comment">Comment</button>
+                            <button class="button-like {% if post.is_liked_by(session['user_id']) %}liked{% endif %}"
+                                    onclick="toggleLike({{ post.id }})"
+                                    type="button">
+                                <i class="fas fa-thumbs-up"></i>
+                                <span class="likes-count">{{ post.likes|length }}</span>
+                            </button>
+                            <button class="button-comment" 
+                                    onclick="toggleCommentForm({{ post.id }})"
+                                    type="button">   
+                                <i class="fas fa-comment"></i>
+                                Comment
+                            </button>
+                        </div>
+                        
+                        <!-- Comments Section -->
+                        <div class="comments-section" id="comments-{{ post.id }}">
+                            {% for comment in post.comments %}
+                            <div class="comment">
+                                <strong>{{ comment.user.username }}</strong>
+                                <span class="comment-time">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                                <p>{{ comment.content }}</p>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <!-- Comment Form -->
+                        <div class="comment-form" id="comment-form-{{ post.id }}" style="display: none;">
+                            <form onsubmit="submitComment({{ post.id }}); return false;">
+                                <textarea class="comment-input" placeholder="Write a comment..." required></textarea>
+                                <button type="submit" class="button">Submit</button>
+                            </form>
                         </div>
                     </div>
                     {% endfor %}
@@ -57,5 +97,67 @@
             </div>
         </div>
     </div>
+
+    <script>
+        function toggleLike(postId) {
+            fetch(`/like/${postId}`, { 
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const button = document.querySelector(`.post-card[data-post-id="${postId}"] .button-like`);
+                    const countSpan = button.querySelector('.likes-count');
+                    countSpan.textContent = data.likes_count;
+                    button.classList.toggle('liked', data.action === 'liked');
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        function toggleCommentForm(postId) {
+            const form = document.getElementById(`comment-form-${postId}`);
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function submitComment(postId) {
+            const form = document.getElementById(`comment-form-${postId}`);
+            const textarea = form.querySelector('.comment-input');
+            const content = textarea.value.trim();
+            
+            if (!content) return;
+            
+            const formData = new FormData();
+            formData.append('content', content);
+            
+            fetch(`/comment/${postId}`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const commentsSection = document.getElementById(`comments-${postId}`);
+                    const newComment = document.createElement('div');
+                    newComment.className = 'comment';
+                    newComment.innerHTML = `
+                        <strong>${data.username}</strong>
+                        <span class="comment-time">${data.created_at}</span>
+                        <p>${data.content}</p>
+                    `;
+                    commentsSection.appendChild(newComment);
+                    textarea.value = '';
+                    form.style.display = 'none';
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        }
+    </script>
 </body>
 </html> 

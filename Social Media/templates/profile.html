@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ profile_user.username }}'s Profile</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-items">
+                <a href="{{ url_for('dashboard') }}" class="nav-link">
+                    <i class="fas fa-home"></i> Home
+                </a>
+                <a href="{{ url_for('friends') }}" class="nav-link">
+                    <i class="fas fa-user-friends"></i> Friends
+                </a>
+                <form action="{{ url_for('search') }}" method="GET" class="search-form">
+                    <input type="text" name="query" placeholder="Search users...">
+                    <button type="submit"><i class="fas fa-search"></i></button>
+                </form>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Profile Banner -->
+        <div class="profile-banner">
+            <div class="profile-cover">
+                <img src="{{ url_for('static', filename='images/default-cover.jpg') }}" alt="Cover Photo">
+            </div>
+            <div class="profile-avatar-large">
+                <i class="fas fa-user-circle"></i>
+            </div>
+        </div>
+
+        <!-- Profile Info Card -->
+        <div class="profile-card">
+            <div class="profile-header">
+                <div class="profile-info">
+                    <h1>{{ profile_user.username }}</h1>
+                    {% if profile_user.first_name or profile_user.last_name %}
+                        <h2 class="full-name">{{ profile_user.first_name }} {{ profile_user.last_name }}</h2>
+                    {% endif %}
+                </div>
+                {% if profile_user.id != current_user.id %}
+                    <div class="friendship-status">
+                        {% if not friendship %}
+                            <button class="button primary-button" onclick="sendRequest({{ profile_user.id }}, this)">
+                                <i class="fas fa-user-plus"></i> Add Friend
+                            </button>
+                        {% elif friendship.status == 'pending' %}
+                            {% if friendship.friend_id == current_user.id %}
+                                <button class="button accept-button" onclick="acceptRequest({{ friendship.id }})">
+                                    <i class="fas fa-check"></i> Accept Request
+                                </button>
+                            {% else %}
+                                <button class="button" disabled>Request Sent</button>
+                            {% endif %}
+                        {% else %}
+                            <button class="button friends-button" disabled>
+                                <i class="fas fa-check"></i> Friends
+                            </button>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Profile Stats -->
+            <div class="profile-stats">
+                <div class="stat-item">
+                    <span class="stat-value">{{ posts|length }}</span>
+                    <span class="stat-label">Posts</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value">{{ profile_user.get_friends()|length }}</span>
+                    <span class="stat-label">Friends</span>
+                </div>
+            </div>
+
+            <!-- Profile Bio -->
+            <div class="profile-bio">
+                <p>{{ profile_user.bio if profile_user.bio else "No bio yet." }}</p>
+            </div>
+        </div>
+
+        <!-- Posts Section -->
+        <div class="posts-section">
+            <h3>Posts</h3>
+            {% if posts %}
+                {% for post in posts %}
+                    <div class="post-card">
+                        <div class="post-header">
+                            <div class="post-author">
+                                <i class="fas fa-user-circle"></i>
+                                <div>
+                                    <span class="author-name">{{ profile_user.username }}</span>
+                                    <span class="post-time">{{ post.created_at.strftime('%B %d, %Y at %I:%M %p') }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="post-content">
+                            {{ post.content }}
+                        </div>
+                        <div class="post-actions">
+                            <button class="action-button {% if post.is_liked_by(current_user.id) %}liked{% endif %}"
+                                    onclick="likePost({{ post.id }})">
+                                <i class="fas fa-heart"></i>
+                                <span>{{ post.likes|length }}</span>
+                            </button>
+                            <button class="action-button" onclick="toggleComments({{ post.id }})">
+                                <i class="fas fa-comment"></i>
+                                <span>{{ post.comments|length }}</span>
+                            </button>
+                        </div>
+                        
+                        <!-- Comments Section -->
+                        <div class="comments-section" id="comments-{{ post.id }}" style="display: none;">
+                            {% for comment in post.comments %}
+                                <div class="comment">
+                                    <i class="fas fa-user-circle"></i>
+                                    <div class="comment-content">
+                                        <span class="comment-author">{{ comment.user.username }}</span>
+                                        <p>{{ comment.content }}</p>
+                                        <span class="comment-time">{{ comment.created_at.strftime('%B %d, %Y at %I:%M %p') }}</span>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                            <form class="comment-form" onsubmit="event.preventDefault(); addComment({{ post.id }})">
+                                <input type="text" placeholder="Write a comment..." id="comment-input-{{ post.id }}">
+                                <button type="submit"><i class="fas fa-paper-plane"></i></button>
+                            </form>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="no-posts">
+                    <i class="fas fa-file-alt"></i>
+                    <p>No posts yet</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        function toggleComments(postId) {
+            const commentsSection = document.getElementById(`comments-${postId}`);
+            commentsSection.style.display = commentsSection.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function addComment(postId) {
+            const input = document.getElementById(`comment-input-${postId}`);
+            const content = input.value.trim();
+            if (content) {
+                // Add your comment submission logic here
+                input.value = '';
+            }
+        }
+
+        // Your existing friend request functions here
+    </script>
+</body>
+</html> 

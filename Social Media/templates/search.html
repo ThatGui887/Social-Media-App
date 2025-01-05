@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Users - Social Media App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">Social Media App</div>
+            <div class="nav-items">
+                <a href="{{ url_for('dashboard') }}" class="nav-link">
+                    <i class="fas fa-home"></i> Home
+                </a>
+                <a href="{{ url_for('friends') }}" class="nav-link">
+                    <i class="fas fa-user-friends"></i> Friends
+                </a>
+                <form action="{{ url_for('search') }}" method="GET" class="search-form">
+                    <input type="text" name="query" placeholder="Search users..." value="{{ query }}">
+                    <button type="submit"><i class="fas fa-search"></i></button>
+                </form>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="search-results">
+            <h2>Search Results</h2>
+            {% if users %}
+                {% for user in users %}
+                    <div class="user-card">
+                        <div class="user-info">
+                            <i class="fas fa-user-circle user-avatar"></i>
+                            <div class="user-details">
+                                <a href="{{ url_for('profile', user_id=user.id) }}">
+                                    <span class="username">{{ user.username }}</span>
+                                </a>
+                                {% if user.first_name or user.last_name %}
+                                    <span class="full-name">{{ user.first_name }} {{ user.last_name }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <button class="button" onclick="sendRequest({{ user.id }}, this)">
+                            Add Friend
+                        </button>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p class="no-results">No users found matching "{{ query }}"</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+    function sendRequest(userId, button) {
+        fetch(`/send_request/${userId}`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                button.textContent = 'Request Sent';
+                button.disabled = true;
+            } else {
+                alert(data.error || 'An error occurred');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred');
+        });
+    }
+    </script>
+</body>
+</html> 
