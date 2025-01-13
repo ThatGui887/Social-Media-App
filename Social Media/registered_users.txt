@@ -26,3 +26,15 @@ Email: glassman@gmail.com
 First Name: Sand
 Last Name: furnace
 --------------------------------------------------
+Username: DaleDobeck, Email: test@gmail.com, Name: Marco Pienaar
+Username: Bobaas, Email: test0@gmail.com, Name: koos dekker
+Username: Thor, Email: test1@gmail.com, Name: Torki Cute
+Username: Thor, Email: test0@gmail.com, Name: Thor Hannekom
+Username: ivy, Email: test1@gmail.com, Name: ivy hannekom
+Username: wqewqer, Email: test@gmail.com, Name: qwer erw
+Username: rewq, Email: test1@gmail.com, Name: rewqweqr wqer
+Username: bob, Email: test@gmail.com, Name: bob dylan
+Username: Garry, Email: test1@gmail.com, Name: Micheal Scott
+Username: Thor, Email: test0@gmail.com, Name: Thor Cute
+Username: Thor, Email: t1@gmail.com, Name: Bob Dylan
+Username: Loki, Email: t2@gmail.com, Name: Micheal Scott

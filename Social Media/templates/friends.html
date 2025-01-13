@@ -56,11 +56,45 @@
                                 <span>{{ friendship.friend.username }}</span>
                             </a>
                         </div>
+                        <div class="friend-actions">
+                            <a href="{{ url_for('profile', user_id=friendship.friend.id) }}" class="button">
+                                <i class="fas fa-user"></i> Profile
+                            </a>
+                            <button onclick="openChat({{ friendship.friend.id }}, '{{ friendship.friend.username }}')" class="button">
+                                <i class="fas fa-comment"></i> Chat
+                            </button>
+                            <button onclick="unfriendUser({{ friendship.friend.id }})" class="button unfriend-btn">
+                                <i class="fas fa-user-minus"></i> Unfriend
+                            </button>
+                        </div>
                     </div>
                 {% endfor %}
             {% else %}
                 <p>No friends yet</p>
             {% endif %}
+        </div>
+    </div>
+
+    <div id="chat-popup" class="chat-popup">
+        <div class="chat-popup-content">
+            <div class="chat-popup-header">
+                <div class="chat-user-info">
+                    <i class="fas fa-user-circle"></i>
+                    <span id="chat-username"></span>
+                </div>
+                <button onclick="closeChat()" class="close-button">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="chat-messages" id="chat-messages"></div>
+            <div class="chat-input">
+                <form id="message-form" onsubmit="sendMessage(event)">
+                    <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off">
+                    <button type="submit">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
 
@@ -83,6 +117,158 @@
             console.error('Error:', error);
             alert('An error occurred');
         });
+    }
+
+    let currentChatId = null;
+    let lastCheck = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    let messageCheckInterval;
+
+    function openChat(friendId, username) {
+        currentChatId = friendId;
+        document.getElementById('chat-username').textContent = username;
+        document.getElementById('chat-popup').classList.add('active');
+        
+        // Clear previous messages
+        document.getElementById('chat-messages').innerHTML = '';
+        
+        // Load chat history
+        fetch(`/chat/${friendId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                data.messages.forEach(message => addMessageToChat(message));
+                scrollToBottom();
+            }
+        });
+        
+        // Start checking for new messages
+        clearInterval(messageCheckInterval);
+        messageCheckInterval = setInterval(() => checkNewMessages(friendId), 3000);
+    }
+
+    function closeChat() {
+        document.getElementById('chat-popup').classList.remove('active');
+        clearInterval(messageCheckInterval);
+        currentChatId = null;
+    }
+
+    function sendMessage(event) {
+        event.preventDefault();
+        if (!currentChatId) {
+            console.log("No chat ID");
+            return;
+        }
+        
+        const input = document.getElementById('message-input');
+        const content = input.value.trim();
+        
+        console.log("Attempting to send message:", content); // Debug log
+        
+        if (!content) {
+            console.log("Empty message");
+            return;
+        }
+        
+        fetch(`/send_message/${currentChatId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `content=${encodeURIComponent(content)}`
+        })
+        .then(response => {
+            console.log("Response status:", response.status); // Debug log
+            return response.json();
+        })
+        .then(data => {
+            console.log("Response data:", data); // Debug log
+            if (data.status === 'success') {
+                addMessageToChat(data.message);
+                input.value = '';
+                scrollToBottom();
+            } else {
+                console.error("Error sending message:", data.error);
+            }
+        })
+        .catch(error => {
+            console.error("Fetch error:", error);
+        });
+    }
+
+    function addMessageToChat(message) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${message.is_sender ? 'sent' : 'received'}`;
+        messageDiv.setAttribute('data-message-id', message.id);
+        
+        const statusIcon = message.is_sender ? 
+            `<span class="message-status">
+                ${message.read ? '✓✓' : message.delivered ? '✓' : ''}
+            </span>` : '';
+        
+        messageDiv.innerHTML = `
+            <div class="message-content">
+                ${message.content}
+                <span class="message-time">${message.created_at.split(' ')[1].slice(0, 5)}</span>
+                ${statusIcon}
+            </div>
+        `;
+        document.getElementById('chat-messages').appendChild(messageDiv);
+    }
+
+    function checkNewMessages(friendId) {
+        if (!currentChatId) return;
+        
+        fetch(`/get_new_messages/${friendId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // Clear existing messages
+                const chatMessages = document.getElementById('chat-messages');
+                chatMessages.innerHTML = '';
+                
+                // Add all messages
+                data.messages.forEach(message => {
+                    addMessageToChat(message);
+                });
+                scrollToBottom();
+            }
+        })
+        .catch(error => {
+            console.error("Error checking messages:", error);
+        });
+    }
+
+    // Update the interval to check more frequently
+    setInterval(() => {
+        if (currentChatId) {
+            checkNewMessages(currentChatId);
+        }
+    }, 2000); // Check every 2 seconds
+
+    function scrollToBottom() {
+        const chatMessages = document.getElementById('chat-messages');
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function unfriendUser(friendId) {
+        if (confirm('Are you sure you want to unfriend this user?')) {
+            fetch(`/unfriend/${friendId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Reload the page to update the friends list
+                    location.reload();
+                } else {
+                    alert('Error unfriending user: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error unfriending user');
+            });
+        }
     }
     </script>
 </body>

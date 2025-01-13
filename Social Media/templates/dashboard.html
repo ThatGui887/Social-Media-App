@@ -8,6 +8,21 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
 <body>
+    <div class="notification-center">
+        <div class="notification-icon" onclick="toggleNotifications()">
+            <i class="fas fa-bell"></i>
+            <span class="notification-badge" id="notification-count">0</span>
+        </div>
+        <div class="notification-dropdown" id="notification-dropdown">
+            <div class="notification-header">
+                <h3>Notifications</h3>
+            </div>
+            <div class="notification-list" id="notification-list">
+                <!-- Notifications will be inserted here -->
+            </div>
+        </div>
+    </div>
+
     <nav class="navbar">
         <div class="container">
             <div class="nav-brand">Social Media App</div>
@@ -158,6 +173,276 @@
             })
             .catch(error => console.error('Error:', error));
         }
+
+        let notificationCheckInterval;
+        let currentChatId = null;
+        let lastNotificationCheck = new Date();
+
+        function checkNotifications() {
+            // Only check if it's been more than 10 seconds since last check
+            const now = new Date();
+            if (now - lastNotificationCheck < 10000) return;
+            
+            lastNotificationCheck = now;
+            fetch('/get_notifications')
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    updateNotificationBadge(data.notifications.length);
+                    // Only update notification list if dropdown is open
+                    if (document.getElementById('notification-dropdown').classList.contains('active')) {
+                        updateNotificationList(data.notifications);
+                    }
+                }
+            });
+        }
+
+        function startPolling() {
+            // Clear any existing intervals
+            clearInterval(notificationCheckInterval);
+            
+            // Set new interval - check every 10 seconds instead of 3
+            notificationCheckInterval = setInterval(checkNotifications, 10000);
+        }
+
+        // Start polling when page loads
+        startPolling();
+
+        // Stop polling when page is not visible
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                clearInterval(notificationCheckInterval);
+            } else {
+                startPolling();
+            }
+        });
+
+        function updateNotificationBadge(count) {
+            const badge = document.getElementById('notification-count');
+            badge.textContent = count;
+            badge.style.display = count > 0 ? 'block' : 'none';
+        }
+
+        function updateNotificationList(notifications) {
+            const list = document.getElementById('notification-list');
+            list.innerHTML = notifications.length ? '' : '<div class="no-notifications">No new notifications</div>';
+            
+            notifications.forEach(notification => {
+                const notificationEl = document.createElement('div');
+                notificationEl.className = 'notification-item';
+                notificationEl.innerHTML = `
+                    <div class="notification-content" onclick="handleNotificationClick(${notification.from_user_id}, '${notification.type}', ${notification.id})">
+                        <i class="fas ${notification.type === 'message' ? 'fa-envelope' : 'fa-user-plus'}"></i>
+                        <div class="notification-text">
+                            <p>${notification.content}</p>
+                            <span class="notification-time">${formatTime(notification.created_at)}</span>
+                        </div>
+                    </div>
+                    <button onclick="markNotificationRead(${notification.id}, this)">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                list.appendChild(notificationEl);
+            });
+        }
+
+        function handleNotificationClick(fromUserId, type, notificationId) {
+            if (type === 'message') {
+                openChatPopup(fromUserId);
+            }
+            markNotificationRead(notificationId);
+        }
+
+        function openChatPopup(userId) {
+            // First fetch user details
+            fetch(`/get_user/${userId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showChatPopup(userId, data.user.username);
+                }
+            });
+        }
+
+        function markNotificationRead(notificationId, button) {
+            fetch(`/mark_notification_read/${notificationId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    button.closest('.notification-item').remove();
+                    checkNotifications();
+                }
+            });
+        }
+
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        // For chat functionality
+        function loadChatHistory(userId) {
+            if (!currentChatId) return;
+            
+            fetch(`/get_new_messages/${userId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    updateChatMessages(data.messages);
+                }
+            });
+        }
+
+        // Only check messages when chat is open
+        function startMessageChecking() {
+            if (messageCheckInterval) {
+                clearInterval(messageCheckInterval);
+            }
+            messageCheckInterval = setInterval(() => {
+                if (currentChatId && document.visibilityState === 'visible') {
+                    loadChatHistory(currentChatId);
+                }
+            }, 5000); // Check every 5 seconds instead of 3
+        }
     </script>
+
+    <div id="chat-popup" class="chat-popup">
+        <div class="chat-popup-content">
+            <div class="chat-popup-header">
+                <div class="chat-user-info">
+                    <i class="fas fa-user-circle"></i>
+                    <span id="chat-username"></span>
+                </div>
+                <button onclick="closeChatPopup()" class="close-button">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="chat-messages" id="chat-messages"></div>
+            <div class="chat-input">
+                <form id="message-form" onsubmit="sendMessage(event)">
+                    <input type="text" id="message-input" placeholder="Type a message...">
+                    <button type="submit">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentChatId = null;
+        let messageCheckInterval;
+
+        function showChatPopup(userId, username) {
+            currentChatId = userId;
+            document.getElementById('chat-username').textContent = username;
+            document.getElementById('chat-popup').classList.add('active');
+            loadChatHistory(userId);
+            startMessageChecking();
+        }
+
+        function closeChatPopup() {
+            document.getElementById('chat-popup').classList.remove('active');
+            currentChatId = null;
+            clearInterval(messageCheckInterval);
+        }
+
+        function loadChatHistory(userId) {
+            console.log("Loading chat history for user:", userId);
+            fetch(`/get_new_messages/${userId}`)
+            .then(response => response.json())
+            .then(data => {
+                console.log("Received chat data:", data);
+                if (data.status === 'success') {
+                    const chatMessages = document.getElementById('chat-messages');
+                    chatMessages.innerHTML = ''; // Clear existing messages
+                    
+                    if (data.messages && data.messages.length > 0) {
+                        data.messages.forEach(message => addMessageToChat(message));
+                        scrollToBottom();
+                    }
+                }
+            })
+            .catch(error => console.error("Error loading chat:", error));
+        }
+
+        function startMessageChecking() {
+            clearInterval(messageCheckInterval);
+            messageCheckInterval = setInterval(() => {
+                if (currentChatId) {
+                    loadChatHistory(currentChatId);
+                }
+            }, 1000); // Check every second
+        }
+
+        function scrollToBottom() {
+            const chatMessages = document.getElementById('chat-messages');
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function sendMessage(event) {
+            event.preventDefault();
+            if (!currentChatId) return;
+            
+            const input = document.getElementById('message-input');
+            const content = input.value.trim();
+            
+            if (!content) return;
+            
+            fetch(`/send_message/${currentChatId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `content=${encodeURIComponent(content)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    input.value = '';
+                    loadChatHistory(currentChatId); // Reload messages after sending
+                }
+            })
+            .catch(error => console.error("Error sending message:", error));
+        }
+
+        function addMessageToChat(message) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${message.is_sender ? 'sent' : 'received'}`;
+            messageDiv.setAttribute('data-message-id', message.id);
+            
+            const time = message.created_at.split(' ')[1].slice(0, 5);
+            
+            messageDiv.innerHTML = `
+                <div class="message-content">
+                    ${message.content}
+                    <span class="message-time">${time}</span>
+                    ${message.is_sender ? `
+                        <span class="message-status">
+                            ${message.read ? '✓✓' : message.delivered ? '✓' : ''}
+                        </span>
+                    ` : ''}
+                </div>
+            `;
+            
+            document.getElementById('chat-messages').appendChild(messageDiv);
+        }
+    </script>
+
+    <header class="dashboard-header">
+        <div class="header-content">
+            <h1>Dashboard</h1>
+            <div class="header-actions">
+                <div class="notification-center">
+                    <!-- Existing notification code -->
+                </div>
+                <a href="{{ url_for('logout') }}" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
+            </div>
+        </div>
+    </header>
 </body>
 </html> 

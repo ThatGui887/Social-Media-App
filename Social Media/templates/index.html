@@ -5,21 +5,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Social Media App</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
 <body>
-    <div class="container">
-        <h1>Welcome to Social Media App</h1>
-        
-        <!-- Add Flash Messages -->
+    <!-- Flash Messages Container - Make sure it's outside any other containers -->
+    <div class="flash-container">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
                     <div class="alert alert-{{ category }}">
                         {{ message }}
+                        <span class="close-btn" onclick="this.parentElement.style.display='none';">&times;</span>
                     </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
+    </div>
+
+    <div class="container">
+        <h1>Welcome to Social Media App</h1>
+        
+        <!-- Flash Messages -->
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash-message {{ category }}">
+                            <i class="fas {% if category == 'error' %}fa-exclamation-circle{% else %}fa-check-circle{% endif %}"></i>
+                            {{ message }}
+                            <button onclick="this.parentElement.remove()" class="close-flash">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
         
         <div class="auth-container">
             <!-- Login Form -->
@@ -71,5 +92,69 @@
             </div>
         </div>
     </div>
+
+    <!-- Add this in the navigation/header area -->
+    {% if session.get('user_id') %}
+    <div class="nav-actions">
+        <a href="{{ url_for('logout') }}" class="logout-btn">
+            <i class="fas fa-sign-out-alt"></i> Logout
+        </a>
+    </div>
+    {% endif %}
+
+    <style>
+        /* Add these styles directly in the HTML for testing */
+        .flash-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            width: 300px;
+        }
+
+        .alert {
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            position: relative;
+            animation: slideIn 0.5s ease-out;
+        }
+
+        .alert-error {
+            background-color: #fee2e2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+
+        .alert-success {
+            background-color: #dcfce7;
+            color: #16a34a;
+            border: 1px solid #bbf7d0;
+        }
+
+        .close-btn {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            opacity: 0.7;
+        }
+
+        .close-btn:hover {
+            opacity: 1;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
 </body>
 </html> 

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat with {{ friend.username }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-items">
+                <a href="{{ url_for('dashboard') }}" class="nav-link">
+                    <i class="fas fa-home"></i> Home
+                </a>
+                <a href="{{ url_for('friends') }}" class="nav-link">
+                    <i class="fas fa-user-friends"></i> Friends
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="chat-container">
+            <!-- Chat Header -->
+            <div class="chat-header">
+                <div class="chat-user-info">
+                    <i class="fas fa-user-circle"></i>
+                    <span>{{ friend.username }}</span>
+                </div>
+            </div>
+
+            <!-- Chat Messages -->
+            <div class="chat-messages" id="chat-messages">
+                {% for message in messages %}
+                    <div class="message {% if message.sender_id == session['user_id'] %}sent{% else %}received{% endif %}">
+                        <div class="message-content">
+                            {{ message.content }}
+                            <span class="message-time">{{ message.created_at.strftime('%H:%M') }}</span>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <!-- Message Input -->
+            <div class="chat-input">
+                <form id="message-form" onsubmit="sendMessage(event)">
+                    <input type="text" id="message-input" placeholder="Type a message...">
+                    <button type="submit">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const chatMessages = document.getElementById('chat-messages');
+        const messageForm = document.getElementById('message-form');
+        const messageInput = document.getElementById('message-input');
+        let lastCheck = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+        // Scroll to bottom of chat
+        function scrollToBottom() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        scrollToBottom();
+
+        // Send message
+        function sendMessage(event) {
+            event.preventDefault();
+            const content = messageInput.value.trim();
+            if (!content) return;
+
+            fetch('/send_message/{{ friend.id }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `content=${encodeURIComponent(content)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    addMessageToChat(data.message);
+                    messageInput.value = '';
+                    scrollToBottom();
+                }
+            });
+        }
+
+        // Add message to chat
+        function addMessageToChat(message) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${message.is_sender ? 'sent' : 'received'}`;
+            messageDiv.innerHTML = `
+                <div class="message-content">
+                    ${message.content}
+                    <span class="message-time">${message.created_at.split(' ')[1].slice(0, 5)}</span>
+                </div>
+            `;
+            chatMessages.appendChild(messageDiv);
+        }
+
+        // Check for new messages
+        function checkNewMessages() {
+            fetch(`/get_new_messages/{{ friend.id }}?last_check=${encodeURIComponent(lastCheck)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success' && data.messages.length > 0) {
+                    data.messages.forEach(message => {
+                        addMessageToChat(message);
+                    });
+                    scrollToBottom();
+                }
+                lastCheck = new Date().toISOString().slice(0, 19).replace('T', ' ');
+            });
+        }
+
+        // Check for new messages every 3 seconds
+        setInterval(checkNewMessages, 3000);
+    </script>
+</body>
+</html> 

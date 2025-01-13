@@ -31,21 +31,28 @@
             <h2>Search Results</h2>
             {% if users %}
                 {% for user in users %}
-                    <div class="user-card">
+                    <div class="user-card" data-user-id="{{ user.id }}">
                         <div class="user-info">
-                            <i class="fas fa-user-circle user-avatar"></i>
+                            <i class="fas fa-user-circle"></i>
                             <div class="user-details">
-                                <a href="{{ url_for('profile', user_id=user.id) }}">
-                                    <span class="username">{{ user.username }}</span>
-                                </a>
-                                {% if user.first_name or user.last_name %}
-                                    <span class="full-name">{{ user.first_name }} {{ user.last_name }}</span>
-                                {% endif %}
+                                <h3>{{ user.username }}</h3>
+                                <p>{{ user.first_name }} {{ user.last_name }}</p>
                             </div>
                         </div>
-                        <button class="button" onclick="sendRequest({{ user.id }}, this)">
-                            Add Friend
-                        </button>
+                        <div class="user-actions">
+                            {% if user.friendship_status == 'accepted' %}
+                                <button class="button" disabled>Friends</button>
+                            {% elif user.friendship_status == 'pending' %}
+                                {% if user.is_sender %}
+                                    <button class="button" disabled>Request Sent</button>
+                                {% else %}
+                                    <button class="button accept" onclick="acceptRequest({{ user.id }})">Accept Request</button>
+                                    <button class="button reject" onclick="rejectRequest({{ user.id }})">Reject</button>
+                                {% endif %}
+                            {% else %}
+                                <button class="button" onclick="sendFriendRequest({{ user.id }})">Add Friend</button>
+                            {% endif %}
+                        </div>
                     </div>
                 {% endfor %}
             {% else %}
@@ -55,22 +62,59 @@
     </div>
 
     <script>
-    function sendRequest(userId, button) {
-        fetch(`/send_request/${userId}`, {
+    function acceptRequest(userId) {
+        console.log('Accepting friend request from user:', userId);  // Debug log
+        
+        fetch(`/accept_friend_request/${userId}`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Response:', data);  // Debug log
+            if (data.status === 'success') {
+                // Immediately update the UI
+                const userCard = document.querySelector(`[data-user-id="${userId}"]`);
+                if (userCard) {
+                    const actionsDiv = userCard.querySelector('.user-actions');
+                    actionsDiv.innerHTML = `
+                        <button class="button" disabled>Friends</button>
+                    `;
+                }
+                // Reload the page to update all friend-related elements
+                location.reload();
+            } else {
+                alert(data.error || 'An error occurred while accepting the friend request');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while accepting the friend request');
+        });
+    }
+
+    function sendFriendRequest(userId) {
+        if (userId === {{ session['user_id'] }}) {
+            alert("You cannot add yourself as a friend!");
+            return;
+        }
+        
+        fetch(`/send_friend_request/${userId}`, {
             method: 'POST'
         })
         .then(response => response.json())
         .then(data => {
             if (data.status === 'success') {
-                button.textContent = 'Request Sent';
-                button.disabled = true;
+                // Immediately update the UI
+                const userCard = document.querySelector(`[data-user-id="${userId}"]`);
+                if (userCard) {
+                    const actionsDiv = userCard.querySelector('.user-actions');
+                    actionsDiv.innerHTML = `
+                        <button class="button" disabled>Request Sent</button>
+                    `;
+                }
             } else {
                 alert(data.error || 'An error occurred');
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('An error occurred');
         });
     }
     </script>

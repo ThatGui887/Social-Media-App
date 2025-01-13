@@ -3,7 +3,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
-from sqlalchemy import or_, text
+from sqlalchemy import or_, text, and_
 
 app = Flask(__name__)
 
@@ -103,140 +103,154 @@ class Friend(db.Model):
     
     __table_args__ = (db.UniqueConstraint('user_id', 'friend_id'),)
 
+class Message(db.Model):
+    __tablename__ = 'message'
+    id = db.Column(db.Integer, primary_key=True)
+    sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    receiver_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    read = db.Column(db.Boolean, default=False)
+    delivered = db.Column(db.Boolean, default=False)
+    read_at = db.Column(db.DateTime, nullable=True)
+
+    # Relationships
+    sender = db.relationship('User', foreign_keys=[sender_id], backref='messages_sent')
+    receiver = db.relationship('User', foreign_keys=[receiver_id], backref='messages_received')
+
+class MessageCache(db.Model):
+    __tablename__ = 'message_cache'
+    id = db.Column(db.Integer, primary_key=True)
+    message_id = db.Column(db.Integer, db.ForeignKey('message.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    cached_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationship
+    message = db.relationship('Message')
+    user = db.relationship('User')
+
+    @staticmethod
+    def cache_message(message_id, user_id):
+        cache = MessageCache(message_id=message_id, user_id=user_id)
+        db.session.add(cache)
+        db.session.commit()
+
+    @staticmethod
+    def clear_cache(user_id):
+        old_cache = MessageCache.query.filter_by(user_id=user_id).all()
+        for cache in old_cache:
+            db.session.delete(cache)
+        db.session.commit()
+
+class Notification(db.Model):
+    __tablename__ = 'notification'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    type = db.Column(db.String(20), nullable=False)  # 'message' or 'friend_request'
+    content = db.Column(db.Text, nullable=False)
+    from_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    read = db.Column(db.Boolean, default=False)
+    
+    # Relationships
+    user = db.relationship('User', foreign_keys=[user_id], backref='notifications_received')
+    from_user = db.relationship('User', foreign_keys=[from_user_id])
+
 def init_db():
     with app.app_context():
-        inspector = db.inspect(db.engine)
+        # Create tables
+        db.create_all()
         
-        # Check if the database needs to be created
-        if not os.path.exists(db_path):
-            print("Creating new database...")
-            db.create_all()
-            print("Database created successfully!")
-            return
+        # Verify tables exist
+        inspector = db.inspect(db.engine)
+        existing_tables = inspector.get_table_names()
+        print("Existing tables:", existing_tables)  # Debug print
+        
+        # Verify Message table structure
+        if 'message' in existing_tables:
+            columns = inspector.get_columns('message')
+            print("Message table columns:", columns)  # Debug print
+        
+        # Verify MessageCache table structure
+        if 'message_cache' in existing_tables:
+            columns = inspector.get_columns('message_cache')
+            print("MessageCache table columns:", columns)  # Debug print
 
-        # If database exists, check for missing columns
-        if 'user' in inspector.get_table_names():
-            columns = [column['name'] for column in inspector.get_columns('user')]
-            
-            # If new columns are missing, recreate the tables
-            if 'first_name' not in columns or 'last_name' not in columns:
-                print("Updating database schema...")
-                try:
-                    # Get existing users without the new columns using text()
-                    sql = text('SELECT id, username, email, password FROM user')
-                    existing_users = db.session.execute(sql).fetchall()
-                    
-                    # Drop and recreate tables
-                    db.session.commit()  # Commit any pending transactions
-                    db.drop_all()
-                    db.create_all()
-                    
-                    # Restore users with new schema
-                    for user in existing_users:
-                        new_user = User(
-                            username=user[1],
-                            email=user[2],
-                            password=user[3],
-                            first_name='',  # Default value
-                            last_name=''    # Default value
-                        )
-                        db.session.add(new_user)
-                    
-                    db.session.commit()
-                    print("Database schema updated successfully!")
-                except Exception as e:
-                    db.session.rollback()
-                    print(f"Error updating database: {str(e)}")
-                    raise
-            else:
-                print("Database schema is up to date.")
-        else:
-            print("Creating new tables...")
-            db.create_all()
-            print("Tables created successfully!")
-
-# Make sure all models are defined before initializing
+# Call this when starting the application
 init_db()
 
 # Routes
 @app.route('/')
 def index():
-    # Clear any existing session data when returning to index
-    session.clear()
-    return render_template('index.html', clear_form=True)
+    if 'user_id' in session:
+        return redirect(url_for('dashboard'))
+    return render_template('index.html')
 
 @app.route('/register', methods=['POST'])
 def register():
+    username = request.form['username']
+    email = request.form['email']
+    password = request.form['password']
+    first_name = request.form['first_name']
+    last_name = request.form['last_name']
+
+    # Check if user already exists
+    existing_user = User.query.filter_by(email=email).first()
+    if existing_user:
+        flash('Email already registered.', 'error')
+        return redirect(url_for('index'))
+
+    # Create new user
+    hashed_password = generate_password_hash(password)
+    new_user = User(
+        username=username,
+        email=email,
+        password=hashed_password,
+        first_name=first_name,
+        last_name=last_name
+    )
+
     try:
-        username = request.form.get('username')
-        email = request.form.get('email')
-        password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')
-        first_name = request.form.get('first_name', '')
-        last_name = request.form.get('last_name', '')
-        
-        # First READ to check if user exists
-        if User.query.filter_by(username=username).first():
-            flash('Username already exists!', 'error')
-            return redirect(url_for('index'))
-        
-        if User.query.filter_by(email=email).first():
-            flash('Email already registered!', 'error')
-            return redirect(url_for('index'))
-        
-        # WRITE to database
-        print(f"Writing to database: Creating new user with username {username}")
-        hashed_password = generate_password_hash(password)
-        new_user = User(
-            username=username,
-            email=email,
-            password=hashed_password,
-            first_name=first_name,
-            last_name=last_name
-        )
-        
         db.session.add(new_user)
         db.session.commit()
-        print(f"Successfully wrote new user to database: {username}")
+        
+        # Save user info to text file
+        with open('registered_users.txt', 'a') as f:
+            f.write(f"Username: {username}, Email: {email}, Name: {first_name} {last_name}\n")
         
         flash('Registration successful! Please login.', 'success')
         return redirect(url_for('index'))
-        
     except Exception as e:
         db.session.rollback()
-        print(f"Database write error during registration: {str(e)}")
-        flash(f'An error occurred during registration: {str(e)}', 'error')
+        flash('An error occurred during registration.', 'error')
+        print(f"Registration error: {str(e)}")
         return redirect(url_for('index'))
 
 @app.route('/login', methods=['POST'])
 def login():
-    try:
-        # Get form data without any defaults
-        email = request.form.get('email', '').strip()
-        password = request.form.get('password', '').strip()
-        
-        # Debug print to check exact values being used
-        print(f"Login attempt - Email: {email}")
-        
-        # READ from database - explicitly query for this exact email
-        user = User.query.filter(User.email == email).first()
-        
-        if user and check_password_hash(user.password, password):
-            # Clear any existing session data before setting new
-            session.clear()
-            session['user_id'] = user.id
-            print(f"Login successful for user: {user.username}")
-            flash('Login successful!', 'success')
-            return redirect(url_for('dashboard'))
-        else:
-            print("Login failed - Invalid credentials")
-            flash('Invalid email or password!', 'error')
-            return redirect(url_for('index'))
-            
-    except Exception as e:
-        print(f"Login error: {str(e)}")
-        flash('An error occurred during login.', 'error')
+    email = request.form['email']
+    password = request.form['password']
+    
+    # Debug print
+    print(f"Login attempt for email: {email}")
+    
+    user = User.query.filter_by(email=email).first()
+    
+    if not user:
+        print("No user found")  # Debug print
+        flash('No account found with that email.', 'error')
         return redirect(url_for('index'))
+        
+    if not check_password_hash(user.password, password):
+        print("Invalid password")  # Debug print
+        flash('Invalid password. Please try again.', 'error')
+        return redirect(url_for('index'))
+    
+    # Clear any existing session data before setting new user
+    session.clear()
+    session['user_id'] = user.id
+    flash('Successfully logged in!', 'success')
+    return redirect(url_for('dashboard'))
 
 @app.route('/dashboard')
 def dashboard():
@@ -284,8 +298,8 @@ def create_post():
 
 @app.route('/logout')
 def logout():
-    session.pop('user_id', None)
-    flash('You have been logged out.', 'success')
+    # Use session.clear() directly
+    session.clear()
     return redirect(url_for('index'))
 
 def log_registration(user_data):
@@ -393,24 +407,46 @@ def send_request(to_user_id):
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
-@app.route('/accept_request/<int:request_id>', methods=['POST'])
-def accept_request(request_id):
+@app.route('/accept_friend_request/<int:user_id>', methods=['POST'])
+def accept_friend_request(user_id):
     if 'user_id' not in session:
         return jsonify({'error': 'Not logged in'}), 401
-        
+    
     try:
-        friend_request = Friend.query.get(request_id)
-        if not friend_request:
-            return jsonify({'error': 'Request not found'}), 404
+        # Find the pending friend request
+        friend_request = Friend.query.filter(
+            and_(
+                Friend.user_id == user_id,
+                Friend.friend_id == session['user_id'],
+                Friend.status == 'pending'
+            )
+        ).first()
+        
+        print(f"Found friend request: {friend_request}")  # Debug print
+        
+        if friend_request:
+            # Update the status to accepted
+            friend_request.status = 'accepted'
             
-        if friend_request.friend_id != session['user_id']:
-            return jsonify({'error': 'Not authorized'}), 403
+            # Create notification for the sender
+            notification = Notification(
+                user_id=user_id,
+                type='friend_accepted',
+                content=f'Your friend request was accepted!',
+                from_user_id=session['user_id']
+            )
+            db.session.add(notification)
             
-        friend_request.status = 'accepted'
-        db.session.commit()
-        return jsonify({'status': 'success', 'message': 'Friend request accepted'})
+            db.session.commit()
+            print(f"Friend request accepted: {friend_request.status}")  # Debug print
+            return jsonify({'status': 'success'})
+        else:
+            print("No pending friend request found")  # Debug print
+            return jsonify({'error': 'Friend request not found'}), 404
+            
     except Exception as e:
         db.session.rollback()
+        print(f"Error accepting friend request: {str(e)}")  # Debug print
         return jsonify({'error': str(e)}), 500
 
 @app.route('/friends')
@@ -439,28 +475,38 @@ def friends():
 
 @app.route('/search')
 def search():
-    if 'user_id' not in session:
-        flash('Please login first.', 'error')
-        return redirect(url_for('index'))
-        
     query = request.args.get('query', '').strip()
-    if query:
-        # Search across multiple fields using OR conditions
-        users = User.query.filter(
-            db.or_(
-                User.username.ilike(f'%{query}%'),
-                User.first_name.ilike(f'%{query}%'),
-                User.last_name.ilike(f'%{query}%')
-            )
-        ).filter(User.id != session['user_id']).all()  # Exclude current user from results
-        
-        # Debug print
-        print(f"Search query: {query}")
-        print(f"Found users: {[f'{user.username} ({user.first_name} {user.last_name})' for user in users]}")
-    else:
-        users = []
+    if not query:
+        return render_template('search.html', users=[])
     
-    return render_template('search.html', users=users, query=query)
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return redirect(url_for('index'))
+    
+    # Find users matching the search query
+    users = User.query.filter(
+        User.id != current_user_id,  # Exclude current user
+        (User.username.ilike(f'%{query}%') |
+         User.email.ilike(f'%{query}%') |
+         User.first_name.ilike(f'%{query}%') |
+         User.last_name.ilike(f'%{query}%'))
+    ).all()
+    
+    # Get friendship status for each user
+    for user in users:
+        friendship = Friend.query.filter(
+            ((Friend.user_id == current_user_id) & (Friend.friend_id == user.id)) |
+            ((Friend.user_id == user.id) & (Friend.friend_id == current_user_id))
+        ).first()
+        
+        if friendship:
+            user.friendship_status = friendship.status
+            user.is_sender = friendship.user_id == current_user_id
+        else:
+            user.friendship_status = None
+            user.is_sender = False
+    
+    return render_template('search.html', users=users)
 
 @app.route('/check_db')
 def check_db():
@@ -506,6 +552,340 @@ def profile(user_id):
                          current_user=current_user,
                          friendship=friendship,
                          posts=posts)
+
+@app.route('/chat/<int:friend_id>')
+def chat(friend_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+    
+    # Verify friendship
+    friendship = Friend.query.filter(
+        or_(
+            and_(Friend.user_id == session['user_id'], Friend.friend_id == friend_id),
+            and_(Friend.user_id == friend_id, Friend.friend_id == session['user_id'])
+        )
+    ).first()
+    
+    if not friendship or friendship.status != 'accepted':
+        return jsonify({'error': 'Not friends with this user'}), 403
+    
+    # Get unread messages
+    unread_messages = Message.query.filter_by(
+        sender_id=friend_id,
+        receiver_id=session['user_id'],
+        read=False
+    ).all()
+    
+    # Mark messages as read
+    for message in unread_messages:
+        message.read = True
+        message.read_at = datetime.utcnow()
+    
+    db.session.commit()
+    
+    return jsonify({
+        'status': 'success',
+        'messages': [{
+            'id': message.id,
+            'content': message.content,
+            'created_at': message.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+            'is_sender': message.sender_id == session['user_id'],
+            'read': message.read,
+            'delivered': message.delivered
+        } for message in unread_messages]
+    })
+
+@app.route('/send_message/<int:friend_id>', methods=['POST'])
+def send_message(friend_id):
+    print(f"Received message request for friend_id: {friend_id}")  # Debug print
+    
+    if 'user_id' not in session:
+        print("No user in session")  # Debug print
+        return jsonify({'error': 'Not logged in'}), 401
+    
+    content = request.form.get('content', '').strip()
+    print(f"Message content: {content}")  # Debug print
+    
+    if not content:
+        print("Empty content")  # Debug print
+        return jsonify({'error': 'Message cannot be empty'}), 400
+    
+    # Verify friendship
+    friendship = Friend.query.filter(
+        ((Friend.user_id == session['user_id']) & (Friend.friend_id == friend_id)) |
+        ((Friend.user_id == friend_id) & (Friend.friend_id == session['user_id']))
+    ).first()
+    
+    print(f"Friendship status: {friendship}")  # Debug print
+    
+    if not friendship or friendship.status != 'accepted':
+        print("Not friends or friendship not accepted")  # Debug print
+        return jsonify({'error': 'Not friends with this user'}), 403
+    
+    try:
+        # Create message
+        message = Message(
+            sender_id=session['user_id'],
+            receiver_id=friend_id,
+            content=content,
+            delivered=False,
+            read=False
+        )
+        db.session.add(message)
+        
+        # Create notification
+        sender = User.query.get(session['user_id'])
+        notification = Notification(
+            user_id=friend_id,
+            type='message',
+            content=f'New message from {sender.username}',
+            from_user_id=session['user_id']
+        )
+        db.session.add(notification)
+        
+        db.session.commit()
+        print(f"Message saved with ID: {message.id}")  # Debug print
+        
+        # Cache the message for the receiver
+        MessageCache.cache_message(message.id, friend_id)
+        print("Message cached for receiver")  # Debug print
+        
+        return jsonify({
+            'status': 'success',
+            'message': {
+                'id': message.id,
+                'content': message.content,
+                'created_at': message.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'is_sender': True,
+                'delivered': False,
+                'read': False
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error saving message: {str(e)}")  # Debug print
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/get_new_messages/<int:friend_id>')
+def get_new_messages(friend_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+    
+    try:
+        print(f"Getting messages between {session['user_id']} and {friend_id}")  # Debug print
+        
+        # Get all messages between these two users
+        messages = Message.query.filter(
+            or_(
+                and_(Message.sender_id == session['user_id'], 
+                     Message.receiver_id == friend_id),
+                and_(Message.sender_id == friend_id, 
+                     Message.receiver_id == session['user_id'])
+            )
+        ).order_by(Message.created_at).all()
+        
+        print(f"Found {len(messages)} messages")  # Debug print
+        
+        messages_data = []
+        current_time = datetime.utcnow()
+        
+        for message in messages:
+            print(f"Processing message: {message.content} from {message.sender_id} to {message.receiver_id}")  # Debug print
+            
+            # Mark as delivered and read if current user is receiver
+            if message.receiver_id == session['user_id']:
+                message.delivered = True
+                if not message.read:
+                    message.read = True
+                    message.read_at = current_time
+            
+            messages_data.append({
+                'id': message.id,
+                'content': message.content,
+                'created_at': message.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'is_sender': message.sender_id == session['user_id'],
+                'delivered': message.delivered,
+                'read': message.read
+            })
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'messages': messages_data
+        })
+        
+    except Exception as e:
+        print(f"Error in get_new_messages: {str(e)}")  # Debug print
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/mark_messages_read/<int:friend_id>', methods=['POST'])
+def mark_messages_read(friend_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+    
+    try:
+        # Mark all unread messages from this friend as read
+        unread_messages = Message.query.filter_by(
+            sender_id=friend_id,
+            receiver_id=session['user_id'],
+            read=False
+        ).all()
+        
+        current_time = datetime.utcnow()
+        for message in unread_messages:
+            message.read = True
+            message.read_at = current_time
+        
+        db.session.commit()
+        
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/get_notifications')
+def get_notifications():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+        
+    notifications = Notification.query.filter_by(
+        user_id=session['user_id'],
+        read=False
+    ).order_by(Notification.created_at.desc()).all()
+    
+    return jsonify({
+        'status': 'success',
+        'notifications': [{
+            'id': n.id,
+            'type': n.type,
+            'content': n.content,
+            'from_user': n.from_user.username,
+            'created_at': n.created_at.strftime('%Y-%m-%d %H:%M:%S')
+        } for n in notifications]
+    })
+
+@app.route('/mark_notification_read/<int:notification_id>', methods=['POST'])
+def mark_notification_read(notification_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+        
+    notification = Notification.query.get_or_404(notification_id)
+    if notification.user_id != session['user_id']:
+        return jsonify({'error': 'Unauthorized'}), 403
+        
+    notification.read = True
+    db.session.commit()
+    
+    return jsonify({'status': 'success'})
+
+@app.route('/send_friend_request/<int:user_id>', methods=['POST'])
+def send_friend_request(user_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+        
+    # Prevent self-friending
+    if user_id == session['user_id']:
+        return jsonify({'error': 'Cannot send friend request to yourself'}), 400
+    
+    # Check if request already exists
+    existing_request = Friend.query.filter(
+        ((Friend.user_id == session['user_id']) & (Friend.friend_id == user_id)) |
+        ((Friend.user_id == user_id) & (Friend.friend_id == session['user_id']))
+    ).first()
+    
+    if existing_request:
+        if existing_request.status == 'pending':
+            return jsonify({'error': 'Friend request already sent'}), 400
+        elif existing_request.status == 'accepted':
+            return jsonify({'error': 'Already friends'}), 400
+    
+    try:
+        # Create new friend request
+        friend_request = Friend(
+            user_id=session['user_id'],
+            friend_id=user_id,
+            status='pending'
+        )
+        db.session.add(friend_request)
+        
+        # Create notification for recipient
+        sender = User.query.get(session['user_id'])
+        notification = Notification(
+            user_id=user_id,
+            type='friend_request',
+            content=f'{sender.username} sent you a friend request',
+            from_user_id=session['user_id']
+        )
+        db.session.add(notification)
+        
+        db.session.commit()
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/get_user/<int:user_id>')
+def get_user(user_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+        
+    user = User.query.get_or_404(user_id)
+    return jsonify({
+        'status': 'success',
+        'user': {
+            'id': user.id,
+            'username': user.username,
+            'first_name': user.first_name,
+            'last_name': user.last_name
+        }
+    })
+
+@app.route('/get_chat_history/<int:friend_id>')
+def get_chat_history(friend_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+    
+    messages = Message.query.filter(
+        ((Message.sender_id == session['user_id']) & (Message.receiver_id == friend_id)) |
+        ((Message.sender_id == friend_id) & (Message.receiver_id == session['user_id']))
+    ).order_by(Message.created_at).all()
+    
+    return jsonify({
+        'status': 'success',
+        'messages': [{
+            'id': msg.id,
+            'content': msg.content,
+            'created_at': msg.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+            'is_sender': msg.sender_id == session['user_id']
+        } for msg in messages]
+    })
+
+@app.route('/unfriend/<int:friend_id>', methods=['POST'])
+def unfriend(friend_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+    
+    try:
+        # Find and delete the friendship
+        friendship = Friend.query.filter(
+            or_(
+                and_(Friend.user_id == session['user_id'], Friend.friend_id == friend_id),
+                and_(Friend.user_id == friend_id, Friend.friend_id == session['user_id'])
+            )
+        ).first()
+        
+        if friendship:
+            db.session.delete(friendship)
+            db.session.commit()
+            return jsonify({'status': 'success'})
+        else:
+            return jsonify({'error': 'Friendship not found'}), 404
+            
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)

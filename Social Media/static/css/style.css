@@ -559,4 +559,394 @@ textarea {
 .no-posts i {
     font-size: 48px;
     margin-bottom: 10px;
+}
+
+/* Chat Styles */
+.chat-container {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    height: calc(100vh - 100px);
+    display: flex;
+    flex-direction: column;
+    margin: 20px auto;
+    max-width: 800px;
+}
+
+.chat-header {
+    padding: 15px;
+    border-bottom: 1px solid #e4e6eb;
+}
+
+.chat-user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.message {
+    margin-bottom: 10px;
+    display: flex;
+}
+
+.message.sent {
+    justify-content: flex-end;
+}
+
+.message-content {
+    max-width: 60%;
+    padding: 10px 15px;
+    border-radius: 18px;
+    position: relative;
+}
+
+.message.sent .message-content {
+    background-color: #0084ff;
+    color: white;
+}
+
+.message.received .message-content {
+    background-color: #f0f2f5;
+    color: #1a1a1a;
+}
+
+.message-time {
+    font-size: 12px;
+    opacity: 0.7;
+    margin-left: 8px;
+}
+
+.chat-input {
+    padding: 15px;
+    border-top: 1px solid #e4e6eb;
+}
+
+.chat-input form {
+    display: flex;
+    gap: 10px;
+}
+
+.chat-input input {
+    flex: 1;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 20px;
+    background-color: #f0f2f5;
+}
+
+.chat-input button {
+    background: none;
+    border: none;
+    color: #0084ff;
+    cursor: pointer;
+    font-size: 20px;
+}
+
+.chat-input button:hover {
+    color: #0073e6;
+}
+
+/* Chat Popup Styles */
+.chat-popup {
+    position: fixed;
+    bottom: -100%;
+    right: 30px;
+    width: 350px;
+    height: 500px;
+    background: white;
+    border-radius: 12px 12px 0 0;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    transition: bottom 0.3s ease-in-out;
+    z-index: 1000;
+}
+
+.chat-popup.active {
+    bottom: 0;
+}
+
+.notification-item {
+    cursor: pointer;
+}
+
+.notification-item:hover {
+    background-color: #f0f2f5;
+}
+
+/* Make sure messages are clickable in notifications */
+.notification-content {
+    cursor: pointer;
+}
+
+.notification-content:hover {
+    background-color: #f0f2f5;
+}
+
+/* Flash Messages */
+.flash-messages {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    max-width: 350px;
+}
+
+.flash-message {
+    padding: 15px 20px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: slideIn 0.3s ease-out;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.flash-message.error {
+    background-color: #fef2f2;
+    border: 1px solid #fee2e2;
+    color: #dc2626;
+}
+
+.flash-message.success {
+    background-color: #f0fdf4;
+    border: 1px solid #dcfce7;
+    color: #16a34a;
+}
+
+.flash-message i {
+    font-size: 18px;
+}
+
+.close-flash {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0.7;
+    padding: 0;
+}
+
+.close-flash:hover {
+    opacity: 1;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Optional: Auto-hide flash messages */
+.flash-message {
+    animation: slideIn 0.3s ease-out, fadeOut 0.3s ease-out 5s forwards;
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+}
+
+.message-status {
+    font-size: 12px;
+    margin-left: 5px;
+    opacity: 0.7;
+}
+
+.message.sent .message-status {
+    color: #fff;
+}
+
+/* Notification Styles */
+.notification-center {
+    position: relative;
+    margin-left: 20px;
+}
+
+.notification-icon {
+    cursor: pointer;
+    position: relative;
+    font-size: 20px;
+    color: #1a1a1a;
+}
+
+.notification-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background-color: #ff4444;
+    color: white;
+    border-radius: 50%;
+    padding: 2px 6px;
+    font-size: 12px;
+    display: none;
+}
+
+.notification-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    width: 300px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    display: none;
+    z-index: 1000;
+}
+
+.notification-dropdown.active {
+    display: block;
+}
+
+.notification-header {
+    padding: 15px;
+    border-bottom: 1px solid #e4e6eb;
+}
+
+.notification-header h3 {
+    margin: 0;
+    font-size: 16px;
+    color: #1a1a1a;
+}
+
+.notification-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.notification-item {
+    padding: 12px 15px;
+    border-bottom: 1px solid #e4e6eb;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.notification-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+}
+
+.notification-content i {
+    font-size: 18px;
+    color: #1877f2;
+}
+
+.notification-text {
+    flex: 1;
+}
+
+.notification-text p {
+    margin: 0;
+    font-size: 14px;
+    color: #1a1a1a;
+}
+
+.notification-time {
+    font-size: 12px;
+    color: #65676b;
+}
+
+.notification-item button {
+    background: none;
+    border: none;
+    color: #65676b;
+    cursor: pointer;
+    padding: 5px;
+}
+
+.notification-item button:hover {
+    color: #1a1a1a;
+}
+
+.no-notifications {
+    padding: 20px;
+    text-align: center;
+    color: #65676b;
+}
+
+.unfriend-btn {
+    background-color: #dc3545 !important;
+    color: white !important;
+    transition: background-color 0.3s ease;
+}
+
+.unfriend-btn:hover {
+    background-color: #c82333 !important;
+}
+
+.friend-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.friend-actions .button {
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 14px;
+}
+
+.friend-actions .button i {
+    font-size: 16px;
+}
+
+.logout-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background-color: #dc3545;
+    color: white;
+    border-radius: 4px;
+    text-decoration: none;
+    transition: background-color 0.3s ease;
+}
+
+.logout-btn:hover {
+    background-color: #c82333;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.dashboard-header {
+    padding: 1rem;
+    background-color: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
 } 
