@@ -12,11 +12,32 @@ A Flask-based social media application with user authentication, friend manageme
 - **Profile Management**
   - User profiles with username and full name
   - Profile customization options
+  - User registration with email verification
+  - Secure login/logout functionality
+  - Profile management
+  - Session handling for multiple accounts
+
+- **Messaging System**
+  - Real-time chat between friends
+  - Message status tracking (delivered/read)
+  - Chat history
+  - FIFO message caching
+  - Message notifications
+
+- **Notification sytem**
+  - Real-time notifications
+  - Friend request notifications
+  - New message alerts
+  - Notification badge counter
+  - Clickable notifications that open relevant content
 
 - **Friend System**
   - Send friend requests
   - Accept/manage friend requests
   - View friends list
+  - Unfriend functionality
+  - Friend list Management
+  - User search functionality
 
 - **Post Management**
   - Create and view posts
@@ -81,6 +102,7 @@ A Flask-based social media application with user authentication, friend manageme
   - password (hashed)
   - first_name
   - last_name
+  - created_at
 
 - **Friends**
   - id (Primary Key)
@@ -88,6 +110,31 @@ A Flask-based social media application with user authentication, friend manageme
   - friend_id (Foreign Key)
   - status
   - created_at
+ 
+- **Message**
+  - id (Primary Key)
+  - sender_id (Foreign Key)
+  - receiver_id (Foreign Key)
+  - content
+  - created_at
+  - delivered (Boolean)
+  - read (Boolean)
+  - read_at (Timestamp)
+ 
+- **Notifications**
+  - id (Primary Key)
+  - user_id (Foreign Key)
+  - type (message/friend_request)
+  - content
+  - from_user_id (Foreign Key)
+  - created_at
+  - read (Boolean)
+
+- **MessageCache**
+  - id (Primary Key)
+  - message_id (Foreign Key)
+  - user_id (Foreign Key)
+  - cached_at
 
 - **Posts**
   - id (Primary Key)
@@ -107,6 +154,32 @@ A Flask-based social media application with user authentication, friend manageme
   - user_id (Foreign Key)
   - post_id (Foreign Key)
   - created_at
+
+- **Real-time Updates**
+  - Polling system for new messages (5-second interval)
+  - Notification checking (10-second interval)
+  - Optimized to reduce server load
+  - Visibility state management
+
+- **Message Handling**
+  - FIFO message caching system
+  - Read receipts
+  - Delivery confirmation
+  - Message history preservation
+
+- **Friend Management**
+  - Bidirectional friendship system
+  - Request validation
+  - Friendship status tracking
+  - Immediate UI updates
+
+- **Security Features**
+  - Password hashing
+  - Session management
+  - CSRF protection
+  - Input validation
+  - XSS prevention
+  - Multiple account isolation
 
 ## Contributing
 
