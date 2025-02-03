@@ -68,13 +68,13 @@ A Flask-based social media application with user authentication, friend manageme
 ## Installation
 
 1. Clone the repository
-2. 
+  
 2. Create a virtual environment
-3. 
+  
 3. Install dependencies
-4. 
+   
 4. Run the application
-5. 
+   
 5. Access the application at `http://localhost:5000`
 
 ## Project Structure
