@@ -72,6 +72,8 @@
             const content = messageInput.value.trim();
             if (!content) return;
 
+            console.log("Sending message:", content);
+
             fetch('/send_message/{{ friend.id }}', {
                 method: 'POST',
                 headers: {
@@ -79,13 +81,24 @@
                 },
                 body: `content=${encodeURIComponent(content)}`
             })
-            .then(response => response.json())
+            .then(response => {
+                console.log("Response status:", response.status);
+                return response.json();
+            })
             .then(data => {
+                console.log("Response data:", data);
                 if (data.status === 'success') {
                     addMessageToChat(data.message);
                     messageInput.value = '';
                     scrollToBottom();
+                } else {
+                    console.error("Error:", data.error);
+                    alert("Failed to send message: " + (data.error || "Unknown error"));
                 }
+            })
+            .catch(error => {
+                console.error("Error sending message:", error);
+                alert("Failed to send message. Please try again.");
             });
         }
 
@@ -104,16 +117,25 @@
 
         // Check for new messages
         function checkNewMessages() {
+            console.log("Checking for new messages...");
             fetch(`/get_new_messages/{{ friend.id }}?last_check=${encodeURIComponent(lastCheck)}`)
             .then(response => response.json())
             .then(data => {
+                console.log("New messages data:", data);
                 if (data.status === 'success' && data.messages.length > 0) {
                     data.messages.forEach(message => {
-                        addMessageToChat(message);
+                        // Check if message is already displayed
+                        const existingMsg = document.querySelector(`.message[data-message-id="${message.id}"]`);
+                        if (!existingMsg) {
+                            addMessageToChat(message);
+                        }
                     });
                     scrollToBottom();
                 }
                 lastCheck = new Date().toISOString().slice(0, 19).replace('T', ' ');
+            })
+            .catch(error => {
+                console.error("Error checking messages:", error);
             });
         }
 

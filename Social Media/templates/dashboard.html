@@ -27,38 +27,28 @@
         <div class="container">
             <div class="nav-brand">Social Media App</div>
             <div class="nav-items">
-                <a href="{{ url_for('dashboard') }}" class="nav-link active">
-                    <i class="fas fa-home"></i> Home
-                </a>
-                <a href="{{ url_for('friends') }}" class="nav-link">
-                    <i class="fas fa-user-friends"></i> Friends
-                </a>
-                <form action="{{ url_for('search') }}" method="GET" class="search-form">
-                    <input type="text" name="query" placeholder="Search users...">
-                    <button type="submit"><i class="fas fa-search"></i></button>
-                </form>
                 <span class="welcome-text">Welcome, {{ username }}!</span>
-                <a href="{{ url_for('logout') }}" class="button button-logout">Logout</a>
+                <div class="menu-toggle" onclick="toggleMenu()">
+                    <i class="fas fa-bars"></i>
+                </div>
+                <div class="popout-menu" id="popout-menu">
+                    <a href="{{ url_for('friends') }}" class="nav-link">Friends</a>
+                    <a href="{{ url_for('search') }}" class="nav-link">Search</a>
+                    <a href="{{ url_for('logout') }}" class="nav-link">Logout</a>
+                </div>
             </div>
         </div>
     </nav>
-
-    <div class="container">
-        <div class="dashboard-grid">
-            <!-- Create Post Section -->
-            <div class="card post-form-card">
-                <h2>Create a Post</h2>
-                <form action="{{ url_for('create_post') }}" method="POST">
-                    <div class="form-group">
-                        <textarea name="content" placeholder="What's on your mind?" required></textarea>
-                    </div>
-                    <button type="submit" class="button">Post</button>
-                </form>
-            </div>
-
+        
+        <div class="dashboard-grid centered-content">
             <!-- Feed Section -->
             <div class="feed-section">
-                <h2>Recent Posts</h2>
+                <div class="feed-header">
+                    <h2>Recent Posts</h2>
+                    <a href="{{ url_for('create_post_page') }}" class="create-post-btn">
+                        <i class="fas fa-plus"></i> Create Post
+                    </a>
+                </div>
                 {% if posts %}
                     {% for post in posts %}
                     <div class="card post-card" data-post-id="{{ post.id }}">
@@ -113,6 +103,7 @@
         </div>
     </div>
 
+    <!-- JavaScript for existing functionality -->
     <script>
         function toggleLike(postId) {
             fetch(`/like/${postId}`, { 
@@ -179,7 +170,6 @@
         let lastNotificationCheck = new Date();
 
         function checkNotifications() {
-            // Only check if it's been more than 10 seconds since last check
             const now = new Date();
             if (now - lastNotificationCheck < 10000) return;
             
@@ -189,7 +179,6 @@
             .then(data => {
                 if (data.status === 'success') {
                     updateNotificationBadge(data.notifications.length);
-                    // Only update notification list if dropdown is open
                     if (document.getElementById('notification-dropdown').classList.contains('active')) {
                         updateNotificationList(data.notifications);
                     }
@@ -198,17 +187,12 @@
         }
 
         function startPolling() {
-            // Clear any existing intervals
             clearInterval(notificationCheckInterval);
-            
-            // Set new interval - check every 10 seconds instead of 3
             notificationCheckInterval = setInterval(checkNotifications, 10000);
         }
 
-        // Start polling when page loads
         startPolling();
 
-        // Stop polling when page is not visible
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
                 clearInterval(notificationCheckInterval);
@@ -254,7 +238,6 @@
         }
 
         function openChatPopup(userId) {
-            // First fetch user details
             fetch(`/get_user/${userId}`)
             .then(response => response.json())
             .then(data => {
@@ -282,7 +265,6 @@
             return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         }
 
-        // For chat functionality
         function loadChatHistory(userId) {
             if (!currentChatId) return;
             
@@ -295,7 +277,6 @@
             });
         }
 
-        // Only check messages when chat is open
         function startMessageChecking() {
             if (messageCheckInterval) {
                 clearInterval(messageCheckInterval);
@@ -304,7 +285,36 @@
                 if (currentChatId && document.visibilityState === 'visible') {
                     loadChatHistory(currentChatId);
                 }
-            }, 5000); // Check every 5 seconds instead of 3
+            }, 5000);
+        }
+
+        // New function to toggle the popout menu
+        function toggleMenu() {
+            const menu = document.getElementById('popout-menu');
+            menu.classList.toggle('active');
+        }
+        
+        document.addEventListener('click', function(event) {
+            const menu = document.getElementById('popout-menu');
+            const toggle = document.querySelector('.menu-toggle');
+            if (!menu.contains(event.target) && !toggle.contains(event.target)) {
+                menu.classList.remove('active');
+            }
+        });
+        
+        function toggleNotifications() {
+            const dropdown = document.getElementById('notification-dropdown');
+            dropdown.classList.toggle('active');
+            
+            if (dropdown.classList.contains('active')) {
+                fetch('/get_notifications')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        updateNotificationList(data.notifications);
+                    }
+                });
+            }
         }
     </script>
 
@@ -357,8 +367,7 @@
                 console.log("Received chat data:", data);
                 if (data.status === 'success') {
                     const chatMessages = document.getElementById('chat-messages');
-                    chatMessages.innerHTML = ''; // Clear existing messages
-                    
+                    chatMessages.innerHTML = '';
                     if (data.messages && data.messages.length > 0) {
                         data.messages.forEach(message => addMessageToChat(message));
                         scrollToBottom();
@@ -374,7 +383,7 @@
                 if (currentChatId) {
                     loadChatHistory(currentChatId);
                 }
-            }, 1000); // Check every second
+            }, 1000);
         }
 
         function scrollToBottom() {
@@ -402,7 +411,7 @@
             .then(data => {
                 if (data.status === 'success') {
                     input.value = '';
-                    loadChatHistory(currentChatId); // Reload messages after sending
+                    loadChatHistory(currentChatId);
                 }
             })
             .catch(error => console.error("Error sending message:", error));
@@ -430,19 +439,5 @@
             document.getElementById('chat-messages').appendChild(messageDiv);
         }
     </script>
-
-    <header class="dashboard-header">
-        <div class="header-content">
-            <h1>Dashboard</h1>
-            <div class="header-actions">
-                <div class="notification-center">
-                    <!-- Existing notification code -->
-                </div>
-                <a href="{{ url_for('logout') }}" class="logout-btn">
-                    <i class="fas fa-sign-out-alt"></i> Logout
-                </a>
-            </div>
-        </div>
-    </header>
 </body>
-</html> 
+</html>
