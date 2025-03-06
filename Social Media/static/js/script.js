@@ -122,3 +122,22 @@ async function addComment(event, postId) {
     }
     return false;
 } 
+
+function acceptRequest(requestId) {
+    fetch(`/accept_request/${requestId}`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            document.getElementById(`request-${requestId}`).remove();
+            location.reload();
+        } else {
+            alert(data.error || 'An error occurred');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred');
+    });
+}
