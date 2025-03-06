@@ -267,8 +267,8 @@ def dashboard():
     posts = Post.query.order_by(Post.created_at.desc()).all()
     return render_template('dashboard.html', username=user.username, posts=posts)
 
-@app.route('/create_post', methods=['POST'])
-def create_post():
+@app.route('/create_post_page', methods=['POST'])
+def create_post_page():
     if 'user_id' not in session:
         flash('Please login first.', 'error')
         return redirect(url_for('index'))
@@ -407,43 +407,42 @@ def send_request(to_user_id):
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
-@app.route('/accept_friend_request/<int:user_id>', methods=['POST'])
-def accept_friend_request(user_id):
+@app.route('/accept_request/<int:friendship_id>', methods=['POST'])
+def accept_request(friendship_id):
     if 'user_id' not in session:
         return jsonify({'error': 'Not logged in'}), 401
     
     try:
-        # Find the pending friend request
-        friend_request = Friend.query.filter(
-            and_(
-                Friend.user_id == user_id,
-                Friend.friend_id == session['user_id'],
-                Friend.status == 'pending'
-            )
-        ).first()
+        # Find the pending friend request by its ID
+        friend_request = Friend.query.get(friendship_id)
         
-        print(f"Found friend request: {friend_request}")  # Debug print
-        
-        if friend_request:
-            # Update the status to accepted
-            friend_request.status = 'accepted'
-            
-            # Create notification for the sender
-            notification = Notification(
-                user_id=user_id,
-                type='friend_accepted',
-                content=f'Your friend request was accepted!',
-                from_user_id=session['user_id']
-            )
-            db.session.add(notification)
-            
-            db.session.commit()
-            print(f"Friend request accepted: {friend_request.status}")  # Debug print
-            return jsonify({'status': 'success'})
-        else:
-            print("No pending friend request found")  # Debug print
+        if not friend_request:
+            print("No friend request found with that ID")  # Debug print
             return jsonify({'error': 'Friend request not found'}), 404
-            
+        
+        # Ensure the current user is the recipient
+        if friend_request.friend_id != session['user_id']:
+            return jsonify({'error': 'Unauthorized'}), 403
+        
+        if friend_request.status != 'pending':
+            return jsonify({'error': 'Request already processed'}), 400
+        
+        # Update the status to accepted
+        friend_request.status = 'accepted'
+        
+        # Create notification for the sender
+        notification = Notification(
+            user_id=friend_request.user_id,
+            type='friend_accepted',
+            content=f'Your friend request was accepted!',
+            from_user_id=session['user_id']
+        )
+        db.session.add(notification)
+        
+        db.session.commit()
+        print(f"Friend request {friendship_id} accepted")  # Debug print
+        return jsonify({'status': 'success'})
+        
     except Exception as e:
         db.session.rollback()
         print(f"Error accepting friend request: {str(e)}")  # Debug print
@@ -603,6 +602,16 @@ def send_message(friend_id):
         print("No user in session")  # Debug print
         return jsonify({'error': 'Not logged in'}), 401
     
+    current_user_id = session['user_id']
+    
+    # Return empty success for self-messages instead of error
+    if friend_id == current_user_id:
+        print("Attempted to send message to self")  # Debug print
+        return jsonify({
+            'status': 'success',
+            'message': None
+        })
+    
     content = request.form.get('content', '').strip()
     print(f"Message content: {content}")  # Debug print
     
@@ -610,22 +619,10 @@ def send_message(friend_id):
         print("Empty content")  # Debug print
         return jsonify({'error': 'Message cannot be empty'}), 400
     
-    # Verify friendship
-    friendship = Friend.query.filter(
-        ((Friend.user_id == session['user_id']) & (Friend.friend_id == friend_id)) |
-        ((Friend.user_id == friend_id) & (Friend.friend_id == session['user_id']))
-    ).first()
-    
-    print(f"Friendship status: {friendship}")  # Debug print
-    
-    if not friendship or friendship.status != 'accepted':
-        print("Not friends or friendship not accepted")  # Debug print
-        return jsonify({'error': 'Not friends with this user'}), 403
-    
     try:
         # Create message
         message = Message(
-            sender_id=session['user_id'],
+            sender_id=current_user_id,
             receiver_id=friend_id,
             content=content,
             delivered=False,
@@ -634,12 +631,12 @@ def send_message(friend_id):
         db.session.add(message)
         
         # Create notification
-        sender = User.query.get(session['user_id'])
+        sender = User.query.get(current_user_id)
         notification = Notification(
             user_id=friend_id,
             type='message',
             content=f'New message from {sender.username}',
-            from_user_id=session['user_id']
+            from_user_id=current_user_id
         )
         db.session.add(notification)
         
@@ -650,15 +647,18 @@ def send_message(friend_id):
         MessageCache.cache_message(message.id, friend_id)
         print("Message cached for receiver")  # Debug print
         
+        # Return complete message details including timestamp
         return jsonify({
             'status': 'success',
             'message': {
                 'id': message.id,
                 'content': message.content,
                 'created_at': message.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-                'is_sender': True,
-                'delivered': False,
-                'read': False
+                'sender_id': message.sender_id,
+                'receiver_id': message.receiver_id,
+                'is_sender': True,  # This helps the UI know it's a sent message
+                'delivered': message.delivered,
+                'read': message.read
             }
         })
     except Exception as e:
@@ -669,18 +669,39 @@ def send_message(friend_id):
 @app.route('/get_new_messages/<int:friend_id>')
 def get_new_messages(friend_id):
     if 'user_id' not in session:
+        print("User not logged in")  # Debug print
         return jsonify({'error': 'Not logged in'}), 401
     
+    current_user_id = session['user_id']
+    print(f"Current user: {current_user_id}, Friend: {friend_id}")  # Debug print
+    
+    # First verify the friend exists
+    friend = User.query.get(friend_id)
+    if not friend:
+        print(f"Friend with ID {friend_id} not found")  # Debug print
+        return jsonify({'error': 'Friend not found'}), 404
+    
+    # Check friendship status
+    friendship = Friend.query.filter(
+        and_(
+            or_(
+                and_(Friend.user_id == current_user_id, Friend.friend_id == friend_id),
+                and_(Friend.user_id == friend_id, Friend.friend_id == current_user_id)
+            ),
+            Friend.status == 'accepted'
+        )
+    ).first()
+    
+    if not friendship:
+        print(f"No accepted friendship between {current_user_id} and {friend_id}")  # Debug print
+        return jsonify({'error': 'Not friends with this user'}), 403
+    
     try:
-        print(f"Getting messages between {session['user_id']} and {friend_id}")  # Debug print
-        
-        # Get all messages between these two users
+        # Get messages only between the current user and their friend
         messages = Message.query.filter(
             or_(
-                and_(Message.sender_id == session['user_id'], 
-                     Message.receiver_id == friend_id),
-                and_(Message.sender_id == friend_id, 
-                     Message.receiver_id == session['user_id'])
+                and_(Message.sender_id == current_user_id, Message.receiver_id == friend_id),
+                and_(Message.sender_id == friend_id, Message.receiver_id == current_user_id)
             )
         ).order_by(Message.created_at).all()
         
@@ -690,10 +711,8 @@ def get_new_messages(friend_id):
         current_time = datetime.utcnow()
         
         for message in messages:
-            print(f"Processing message: {message.content} from {message.sender_id} to {message.receiver_id}")  # Debug print
-            
-            # Mark as delivered and read if current user is receiver
-            if message.receiver_id == session['user_id']:
+            # Mark messages as delivered and read if current user is receiver
+            if message.receiver_id == current_user_id:
                 message.delivered = True
                 if not message.read:
                     message.read = True
@@ -703,7 +722,9 @@ def get_new_messages(friend_id):
                 'id': message.id,
                 'content': message.content,
                 'created_at': message.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-                'is_sender': message.sender_id == session['user_id'],
+                'sender_id': message.sender_id,
+                'receiver_id': message.receiver_id,
+                'is_sender': message.sender_id == current_user_id,
                 'delivered': message.delivered,
                 'read': message.read
             })
@@ -712,7 +733,12 @@ def get_new_messages(friend_id):
         
         return jsonify({
             'status': 'success',
-            'messages': messages_data
+            'messages': messages_data,
+            'friend': {
+                'id': friend.id,
+                'username': friend.username,
+                'full_name': friend.get_full_name()
+            }
         })
         
     except Exception as e:
